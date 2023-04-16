@@ -33,8 +33,7 @@ void jisuan(int num)
             __m128 sqrt_result = _mm_sqrt_ps(_mm_castsi128_ps(sum));
 
             __m128i int_result = _mm_cvtps_epi32(sqrt_result);
-            _mm_storeu_si128((__m128i*) & dis[i + 1][j + 1], sqrt_result);
-            _mm_storeu_ps(&dis[i + 1][j + 1], sqrt_result);
+            _mm_storeu_si128((__m128i*) & dis[i + 1][j + 1], int_result);
         }
     }
 }
