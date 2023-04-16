@@ -19,8 +19,8 @@ void jisuan(int num)
         __m128i y1 = _mm_set1_epi32(cityy[i]);
         for (int j = 0; j < num; j += 4)
         {
-            __m128i x2 = _mm_loadu_si128((__m128i*)&cityx[j]);
-            __m128i y2 = _mm_loadu_si128((__m128i*)&cityy[j]);
+            __m128i x2 = _mm_load_si128((__m128i*)&cityx[j]);
+            __m128i y2 = _mm_load_si128((__m128i*)&cityy[j]);
 
             __m128i xdiff = _mm_sub_epi32(x1, x2);
             __m128i ydiff = _mm_sub_epi32(y1, y2);
@@ -33,7 +33,7 @@ void jisuan(int num)
             __m128 sqrt_result = _mm_sqrt_ps(_mm_castsi128_ps(sum));
 
             __m128i int_result = _mm_cvtps_epi32(sqrt_result);
-            _mm_storeu_si128((__m128i*) & dis[i + 1][j + 1], int_result);
+            _mm_store_si128((__m128i*) & dis[i + 1][j + 1], int_result);
         }
     }
 }

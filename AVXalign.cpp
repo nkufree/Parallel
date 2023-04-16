@@ -17,8 +17,8 @@ void jisuan(int num)
         __m256i y1 = _mm256_set1_epi32(cityy[j]);
         for (int i = 0; i < num; i += 8)
         {
-            __m256i x2 = _mm256_loadu_si256((__m256i*) & cityx[i]);
-            __m256i y2 = _mm256_loadu_si256((__m256i*) & cityy[i]);
+            __m256i x2 = _mm256_load_si256((__m256i*) & cityx[i]);
+            __m256i y2 = _mm256_load_si256((__m256i*) & cityy[i]);
 
             __m256i xdiff = _mm256_sub_epi32(x2, x1);
             __m256i ydiff = _mm256_sub_epi32(y2, y1);

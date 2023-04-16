@@ -25,7 +25,7 @@ void jisuan(int num)
             __m256i ds_vec = _mm256_mullo_epi32(xdiff, xdiff);
             ds_vec = _mm256_add_epi32(ds_vec, _mm256_mullo_epi32(ydiff, ydiff));
             __m256i ds = _mm256_cvtps_epi32(_mm256_sqrt_ps(_mm256_cvtepi32_ps(ds_vec)));
-            _mm256_store_si256((__m256i*) & (dis[j + 1][i + 1]), ds);
+            _mm256_storeu_si256((__m256i*) & (dis[j + 1][i + 1]), ds);
         }
     }
 }
