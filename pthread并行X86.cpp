@@ -12,7 +12,7 @@
 #include<Windows.h>
 
 using namespace std;
-
+#define NUM_VECTOR 10000000
 //定义城市
 struct node {
     int num, x, y;
@@ -25,7 +25,7 @@ struct solution {
     int gen;
 };
 
-
+int num_threads = 2;
 int curGen = 1; //当前代数
 bool isFound = false;   //是否找到最优解
 const int maxGen = 10000; //最大代数
@@ -45,8 +45,7 @@ regex pattern("^(\\d+) (\\d+) (\\d+)$"); //读入数据的正则表达式
 
 pthread_rwlock_t rwlock;
 
-#define NUM_THREADS 7
-#define NUM_VECTOR 10000000
+
 void task_func(vector<solution>* nextGenPack, int start, int end);
 // 任务结构体
 struct task_t {
@@ -175,24 +174,26 @@ bool cmp(const solution& a, const solution& b) {
 
 //初始化数据
 void initData() {
-    ifstream f("H:\\vsparallelprogram\\pthread编程\\att48.tsp", ios::in);
     /*
-     * att48.tsp format
-     * number coordinate_x coordinate_y
-    */
+    ifstream f("att48.tsp", ios::in);
+
 
     if (!f) {
         cout << "File Not Found" << endl;
     }
     string s;
     while (getline(f, s)) {
-        //筛选符合pattern的行
+
         if (regex_match(s, pattern)) {
             sregex_iterator it(s.begin(), s.end(), pattern);
-            city.push_back(node{ stoi(it->str(1)), stoi(it->str(2)), stoi(it->str(3)) });
+            city.push_back(node{stoi(it->str(1)), stoi(it->str(2)), stoi(it->str(3))});
         }
     }
-    f.close();
+    f.close();*/
+    for(int i = 1; i < 49; i++)
+    {
+        city.push_back(node{i,i*100,i*200});
+    }
 
     //计算距离，存入dis
     for (int i = 0; i < city.size(); i++)
@@ -391,9 +392,9 @@ vector<solution> process() {
     //即最差个体不参与轮盘赌交叉
     task_queue_t queue;
     task_queue_init(&queue, 100);
-    divide_vector(&nextGenPack, &queue, 21);
+    divide_vector(&nextGenPack, &queue, num_threads);
     pthread_rwlock_init(&rwlock, NULL);
-    task_pool_start(&queue, NUM_THREADS);
+    task_pool_start(&queue, num_threads - 1);
     pthread_rwlock_destroy(&rwlock);
     task_queue_destroy(&queue);
     return nextGenPack;
@@ -404,7 +405,7 @@ void task_func(vector<solution>* nextGenPack, int start, int end) {
     //计算种群种每个个体的适应度
     for (int i = start; i < end; i++) {
         pack[i].F = 10000 / pack[i].sum;
-        pack[i].P = (i == start ? 0 : pack[i-1].P) + pack[i].F;
+        pack[i].P = (i == start ? 0 : pack[i - 1].P) + pack[i].F;
         total += pack[i].F;
     }
     for (int i = start; i < end; i++) {
@@ -453,17 +454,22 @@ void ceshi()
     pack = process();
     curGen++;
     QueryPerformanceCounter((LARGE_INTEGER*)&time1);
-    //cout << "串行计算时间为" << (time1 - time0) * 1000.0 / freq << "ms" << endl;
-    cout << packNum << " " << (time1 - time0) * 1000.0 / freq << "ms" << endl;
+    cout << (time1 - time0) * 1000.0 / freq << "ms" << "\t";
 }
 
 int main() {
-
+    int thread[7] = { 2,3,4,5,6,7,8 };
     int a[10] = { 100,400,700,1000,1300,1600,1900,2100,2400,2700 };
     for (int i = 0; i < 10; i++)
     {
         packNum = a[i];
-        ceshi();
+        cout << packNum << "\t";
+        for (int j = 0; j < 7; j++)
+        {
+            num_threads = thread[j];
+            ceshi();
+        }
+        cout << endl;
     }
     return 0;
 }
