@@ -25,6 +25,7 @@ struct solution {
     int gen;
 };
 
+int taskNum = 1;
 int num_threads = 2;
 int curGen = 1; 
 bool isFound = false;  
@@ -278,11 +279,11 @@ vector<solution> process() {
     nextGenPack[0].gen++;
 
     int cycleNum = pack.size() - 1;
-    #pragma omp parallel for num_threads(num_threads)
+    #pragma omp parallel for num_threads(num_threads) schedule(static,taskNum)
     for (int i = 0; i < cycleNum; i++) {
         int tid = omp_get_thread_num();
-        int start = tid * (cycleNum) / num_threads;
-        int end = min((tid + 1) * cycleNum / num_threads,cycleNum);
+        int start = tid * (cycleNum) / (num_threads * taskNum);
+        int end = min((tid + 1) * cycleNum / (num_threads * taskNum),cycleNum);
 
         double total = 0;
 

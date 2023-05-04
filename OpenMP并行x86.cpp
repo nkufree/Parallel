@@ -12,7 +12,7 @@
 #include <omp.h>
 
 using namespace std;
-#define NUM_THREADS 8
+#define num_threads 8
 //定义城市
 struct node {
     int num, x, y;
@@ -25,7 +25,8 @@ struct solution {
     int gen;
 };
 
-
+int taskNum = 1;
+int num_threads = 2;
 int curGen = 1; //当前代数
 bool isFound = false;   //是否找到最优解
 const int maxGen = 10000; //最大代数
@@ -280,11 +281,11 @@ vector<solution> process() {
     //由于种群容量不变且最优个体占位，故每一代保留最优个体的同时，剔除最差个体
     //即最差个体不参与轮盘赌交叉
     int cycleNum = pack.size() - 1;
-    #pragma omp parallel for num_threads(NUM_THREADS)
+    #pragma omp parallel for num_threads(num_threads) schedule(static,taskNum)
     for (int i = 0; i < cycleNum; i++) {
         int tid = omp_get_thread_num();
-        int start = tid * (cycleNum) / NUM_THREADS;
-        int end = min((tid + 1) * cycleNum / NUM_THREADS,cycleNum);
+        int start = tid * (cycleNum) / (num_threads * taskNum);
+        int end = min((tid + 1) * cycleNum / (num_threads * taskNum),cycleNum);
         //cout << "线程编号为 " << tid << " ,循环的i为 " << i << endl;
         double total = 0;
         //计算种群种每个个体的适应度
