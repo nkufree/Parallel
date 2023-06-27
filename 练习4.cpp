@@ -34,8 +34,8 @@ double gpu_kernel(float* A, float* B, float* C,
                 int col = tileX * index.get_global_id(1);
 
                 float sum[tileY][tileX] = { 0.0f };
-                float subA[tileY][EACH] = {0.0f};
-                float subB[tileX][EACH] = {0.0f};
+                float subA[EACH][tileY] = {0.0f};
+                float subB[EACH][tileX] = {0.0f};
 
                 // core computation
                 for (int k = 0; k < N; k+=EACH) {
@@ -43,18 +43,18 @@ double gpu_kernel(float* A, float* B, float* C,
                     // read data to register
                     for (int m = 0; m < tileY; m++) {
                         for(int s = 0; s < EACH; s++)
-                            subA[m][s] = A[(row + m) * N + k + s];
+                            subA[s][m] = A[(row + m) * N + k + s];
                     }
 
                     for (int p = 0; p < tileX; p++) {
                         for (int s = 0; s < EACH; s++)
-                            subB[p][s] = B[(k + s) * N + p + col];
+                            subB[s][p] = B[(k + s) * N + p + col];
                     }
 
                     for (int m = 0; m < tileY; m++) {
                         for (int p = 0; p < tileX; p++) {
                             for (int s = 0; s < EACH; s++)
-                                sum[m][p] += subA[m][s] * subB[p][s];
+                                sum[m][p] += subA[s][m] * subB[s][p];
                         }
                     }
 
