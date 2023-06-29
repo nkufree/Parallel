@@ -170,7 +170,6 @@ void acoSolve() {
             phero_d);
 
         cudaDeviceSynchronize();
-        // Move solution back to Host
         cudaMemcpy(antColony, antColony_d, sizeof(antColony),
             cudaMemcpyDeviceToHost);
         for (int from = 0; from < NODES; from++) {

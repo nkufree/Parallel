@@ -1,284 +1,224 @@
-#include <assert.h>
-#include <fstream>
+#include <stdio.h>
+#include <math.h>
 #include <iostream>
-#include <cmath>
+#include <fstream>
 #include <sstream>
-#include <random>
-#include <ctime>
-#include<Windows.h>
+#include <string>
+#include <unistd.h>
+#include <chrono>
+#include "ants.h"
 
 using namespace std;
 
-#define ANTS 1024
-#define ALPHA 2
-#define BETA 10
-#define RHO 0.5
-#define Q 50
-#define MAX_ITERATIONS 10
-
-#define NODES 105
-#define DIST 10000
-#define PHERO_INITIAL (1.0 / NODES)
-#define TOTAL_DIST (DIST * NODES)
-
-struct ant {
-    int curNode, nextNode, pathIndex;
-    int tabu[NODES];
-    int solution[NODES];
-    float solutionLen;
+struct Ant {
+  float tourLength;  
+  bool tabu[MAX_NODES];
+  int path[MAX_NODES];
+  int curNode, nextNode, pathIndex;
 };
 
-struct nodeTSP {
-    float x, y;
-};
+Ant antColony[MAX_NODES];
+double pheromone[MAX_NODES][MAX_NODES];
+float best = (float)MAX_TOUR;
+int bestIndex;
+EdgeMatrix *dist;
 
-float heuristic[NODES * NODES];
-double phero[NODES * NODES];
-ant antColony[ANTS];
-float bestSol[ANTS];
-float globalBest = TOTAL_DIST;
+void init(){
+  for (int from = 0; from < MAX_NODES; from ++){
+   for (int to=0; to < MAX_NODES; to ++){
+     pheromone[from][to] = INIT_PHER;
+   }
+  }
 
-float euclideanDistance(float x1, float x2, float y1, float y2) {
-    float xd = x1 - x2;
-    float yd = y1 - y2;
-    return (float)(sqrt(xd * xd + yd * yd));
+  for (int ant=0; ant<MAX_ANTS; ant++){
+    antColony[ant].curNode = rand()%MAX_NODES;
+    for (int to = 0; to <MAX_NODES; to++){
+      antColony[ant].tabu[to]=0;
+      }
+    antColony[ant].pathIndex = 1; 
+    antColony[ant].path[0] = antColony[ant].curNode;
+    antColony[ant].nextNode = -1;
+    antColony[ant].tourLength=0;
+    antColony[ant].tabu[antColony[ant].curNode] = 1; 
+  }
 }
 
-void constructTSP(string graph, nodeTSP* nodes) {
-    ifstream infile(("instances/" + graph + ".tsp").c_str());
-    string line;
-    bool euclidean = true;
-    int node;
-    float x, y;
-    bool reading_nodes = false;
 
-    while (getline(infile, line)) {
-        istringstream iss(line);
-        string word;
-        if (!reading_nodes) {
-            iss >> word;
-            if (word.compare("EDGE_WEIGHT_TYPE") == 0) {
-                iss >> word >> word;
-                cout << "edge type: " << word << endl;
-                euclidean = !word.compare("EUC_2D");
-            }
-            else if (word.compare("NODE_COORD_SECTION") == 0) {
-                reading_nodes = true;
-            }
-        }
-        else if (iss >> node >> x >> y) {
-            nodes[node - 1].x = x;
-            nodes[node - 1].y = y;
-        }
+void restartAnts() {
+  for (int ant = 0; ant < MAX_ANTS; ant++) {
+    antColony[ant].nextNode = -1;
+    antColony[ant].tourLength = 0.0;
+    for (int i = 0; i < MAX_NODES; i++) {
+      antColony[ant].tabu[i] = 0;
+      antColony[ant].path[i] = -1;
     }
-    infile.close();
-    for (int from = 0; from < NODES; from++) {
-        for (int to = from + 1; to < NODES; to++) {
-            float edge_weight;
-            if (euclidean) {
-                edge_weight = euclideanDistance(nodes[from].x, nodes[to].x,
-                    nodes[from].y, nodes[to].y);
-            }
-
-            if (edge_weight == 0) {
-                edge_weight = 1.0;
-            }
-            heuristic[from + to * NODES] = edge_weight;
-            heuristic[to + from * NODES] = edge_weight;
-            phero[from + to * NODES] = PHERO_INITIAL;
-            phero[to + from * NODES] = PHERO_INITIAL;
-        }
-    }
+    antColony[ant].curNode = rand() % MAX_NODES;
+    antColony[ant].pathIndex = 1;
+    antColony[ant].path[0] = antColony[ant].curNode;
+    antColony[ant].tabu[antColony[ant].curNode] = 1;
+  }
+}
+long double calculateProbability(int from, int to){
+   long double a = pow(pheromone[from][to], ALPHA)* pow((1.0/(*dist)[from][to]), BETA);
+   return (long double) (pow(pheromone[from][to], ALPHA)* pow((1.0/(*dist)[from][to]), BETA));
 }
 
-double probFunctionProduct(int from, int to) {
-    double result;
-    result = pow(phero[from + to * NODES], ALPHA) *
-        pow(1 / (heuristic[from + to * NODES]), BETA);
-    if (!isnan(result)) {
-        return (double)((result));
+int selectNextCity(int ant){
+  int from = antColony[ant].curNode;
+  long double sum = 0.0;
+  for (int to = 0; to <MAX_NODES; to++){
+    if (antColony[ant].tabu[to]==0){
+      sum+=calculateProbability(from, to);
     }
-    else {
-        return 0;
+   }
+
+  int lastBestIndex = 0.0;
+  srand((unsigned)time(NULL)); 
+  long double luckyNumber = (long double)rand()/RAND_MAX;
+
+  for (int to = 0; to < MAX_NODES; to++){
+    if (antColony[ant].tabu[to]==0){
+      long double product = calculateProbability(from, to) /sum;
+      if(product > 0 ){
+       luckyNumber-= product; 
+       lastBestIndex=to;
+       	
+       if(luckyNumber<=0.0){
+        return to;
+       }
+      }
     }
+   }
+  return lastBestIndex;
+ }
+
+
+void updatePheromone(){
+ int from, to, i, ant;
+ for (from = 0; from <MAX_NODES; from ++){
+  for (to=0; to<from; to++){
+   pheromone[from][to]*=1.0-RHO;
+   
+   if (pheromone[from][to]<0.0){
+    pheromone[from][to]=INIT_PHER;
+   }
+   pheromone[to][from] = pheromone[from][to];
+  }
+ }
+
+
+  for (ant = 0; ant < MAX_ANTS; ant++) {
+    for (i = 0; i < MAX_NODES; i++) {
+     from = antColony[ant].path[i];
+      if (i < MAX_NODES - 1) {
+      to = antColony[ant].path[i+1];
+      } else {
+      to = antColony[ant].path[0];
+       }
+      pheromone[from][to] += (QVAL / antColony[ant].tourLength);
+      pheromone[to][from] = pheromone[from][to];
+    }
+     }
+} 
+
+float euclideanDistance(int x1, int x2, int y1, int y2) {
+  int xd = x1 - x2;
+  int yd = y1 - y2;
+  return (float) (sqrt(xd * xd + yd * yd) + 0.001);
+
 }
 
-int NextNode(int pos) {
-    int to, from;
-    double denom = 0.00000001;
-    from = antColony[pos].curNode;
-    for (to = 0; to < NODES; to++) {
-        if (antColony[pos].tabu[to] == 0) {
-            denom += probFunctionProduct(from, to);
-        }
-    }
-    assert(denom != 0.0);
-    to++;
-    int count = NODES - antColony[pos].pathIndex;
-    do {
-        double p;
-        to++;
-        if (to >= NODES)
-            to = 0;
-        if (antColony[pos].tabu[to] == 0) { 
-            p = probFunctionProduct(from, to) / denom;
-            srand((unsigned)time(NULL));
-            double x = (double)(rand() % 1000000000) / 1000000000.0;
-            if (x < p) {
-                break;
-            }
-            count--;
-            if (count == 0) {
-                break;
-            }
-        }
-    } while (1);
-    return to;
+float pseudoEuclideanDistance(int x1, int x2, int y1, int y2) {
+  int xd = x1 - x2;
+  int yd = y1 - y2;
+  float rij = sqrt((xd * xd + yd * yd) / 10.0);
+  return ceil(rij);
 }
 
-void initializeAnts() {
-    for (int i = 0; i < ANTS; i++) {
-        for (int node = 0; node < NODES; node++) {
-            antColony[i].tabu[node] = 0;
-            antColony[i].solution[node] = -1;
-        }
-        bestSol[i] = (float)TOTAL_DIST;
-        srand((unsigned)time(NULL));
-        antColony[i].curNode = rand() % NODES;
-        antColony[i].nextNode = -1;
-        antColony[i].pathIndex = 1;
-        antColony[i].solutionLen = 0.0;
+void constructTSP(std::string graph, cityType *cities, EdgeMatrix *dist) {
+  std::ifstream infile(("instances/"+graph + ".tsp").c_str());
+  std::string line;
+  bool euclidean = true;
 
-        antColony[i].tabu[antColony[i].curNode] = 1;
-        antColony[i].solution[0] = antColony[i].curNode;
+  int city;
+  float x, y;
+  bool reading_nodes = false;
+  while (std::getline(infile, line)) {
+    istringstream iss(line);
+    string word;
+    if (!reading_nodes) {
+      iss >> word;
+      if (word.compare("EDGE_WEIGHT_TYPE") == 0) {
+        iss >> word >> word;
+        euclidean = !word.compare("EUC_2D");
+      } else if (word.compare("NODE_COORD_SECTION") == 0) {
+        reading_nodes = true;
+      }
+    } else if (iss >> city >> x >> y) {
+      cities[city-1].x = x;
+      cities[city-1].y = y;
     }
+  }
+  infile.close();
+
+  for (int from = 0; from < MAX_NODES; from++) {
+    (*dist)[from][from] = 0.0;
+
+    float edge_dist;	
+    for (int to = from + 1; to < MAX_NODES; to++) {
+      if (euclidean) {
+        edge_dist = euclideanDistance(cities[from].x, cities[to].x, cities[from].y, cities[to].y);
+      } else {
+        edge_dist = pseudoEuclideanDistance(cities[from].x, cities[to].x, cities[from].y, cities[to].y);
+      }
+      if (edge_dist == 0){
+        edge_dist = 1.0;
+      }
+      (*dist)[from][to] = edge_dist;
+      (*dist)[to][from] = edge_dist;
+    }
+  }
 }
 
-void updateAnts() {
-    for (int i = 0; i < ANTS; i++) {
-        int node = 0;
-
-        while (node++ < NODES) {
-            if (antColony[i].pathIndex < NODES) {
-                antColony[i].nextNode =
-                    NextNode(i);
-                antColony[i].tabu[antColony[i].nextNode] = 1;
-                antColony[i].solution[antColony[i].pathIndex++] =
-                    antColony[i].nextNode;
-                antColony[i].solutionLen +=
-                    heuristic[antColony[i].curNode +
-                    (antColony[i].nextNode * NODES)];
-                if (antColony[i].pathIndex == NODES) {
-                    antColony[i].solutionLen +=
-                        heuristic[antColony[i].solution[NODES - 1] +
-                        (antColony[i].solution[0] * NODES)];
-                }
-                antColony[i].curNode = antColony[i].nextNode;
-            }
-        }
+   
+int bestSolution(){
+  for (int ant = 0; ant < MAX_ANTS; ant++) {
+    if (antColony[ant].tourLength < best) {
+      best = antColony[ant].tourLength;
+      bestIndex = ant;
     }
+  }
+  return best;
 }
+ 
 
-void updatePheromone() {
-    for (int from = 0; from < NODES; from++) {
-        for (int to = 0; to < NODES; to++) {
-            if (from != to) {
-                phero[from + to * NODES] *= (1.0 - RHO);
-                if (phero[from + to * NODES] < 0.0)
-                    phero[from + to * NODES] = PHERO_INITIAL;
-            }
-        }
+
+int main(){
+  cityType cities[MAX_NODES];
+  string graph = "lin105";
+  dist = new EdgeMatrix();
+  constructTSP(graph, cities, dist);
+  
+  auto start = std::chrono::system_clock::now();
+  init();
+  for (int i =0; i<MAX_ITERATIONS; i++){
+    for (int ant = 0; ant < MAX_ANTS; ant++){
+      while (antColony[ant].pathIndex < MAX_NODES){
+        antColony[ant].nextNode = selectNextCity(ant);
+        antColony[ant].tabu[antColony[ant].nextNode]=1;
+        antColony[ant].path[antColony[ant].pathIndex++] = antColony[ant].nextNode;
+        antColony[ant].tourLength += (*dist)[antColony[ant].curNode][antColony[ant].nextNode];   
+        antColony[ant].curNode = antColony[ant].nextNode;
+      }
+     antColony[ant].tourLength += (*dist)[antColony[ant].path[MAX_NODES-1]][antColony[ant].path[0]]; 
     }
-
-    for (int i = 0; i < ANTS; i++) {
-        for (int j = 0; j < NODES; j++) {
-            if (j < NODES - 1) {
-                int from = antColony[i].solution[j];
-                int to = antColony[i].solution[j + 1];
-                phero[from + to * NODES] += (Q / antColony[i].solutionLen);
-                phero[to + from * NODES] += (Q / antColony[i].solutionLen);
-            }
-            else {
-                int from = antColony[i].solution[j];
-                int to = antColony[i].solution[0];
-                phero[from + to * NODES] += (Q / antColony[i].solutionLen);
-                phero[to + from * NODES] += (Q / antColony[i].solutionLen);
-            }
-        }
+    bestSolution();
+    updatePheromone();
+    if (i != MAX_ITERATIONS - 1) {
+      restartAnts();
     }
-
-    for (int i = 0; i < ANTS; i++) {
-            if (bestSol[i] < globalBest) {
-                globalBest = bestSol[i];
-            }
-        }
-}
-
-void restartAnts()
-{
-    for (int i = 0; i < ANTS; i++)
-    {
-        for (int node = 0; node < NODES; node++) {
-            antColony[i].tabu[node] = 0;
-            antColony[i].solution[node] = 1;
-        }
-        if (antColony[i].solutionLen < bestSol[i] &&
-            antColony[i].solutionLen > 0) {
-            bestSol[i] = antColony[i].solutionLen;
-        }
-        srand((unsigned)time(NULL));
-        antColony[i].curNode = rand() % NODES;
-        antColony[i].solution[0] = antColony[i].curNode;
-        antColony[i].tabu[antColony[i].curNode] = 1;
-        antColony[i].nextNode = -1;
-        antColony[i].solutionLen = 0;
-        antColony[i].pathIndex = 1;
-    }
-}
-
-void search() {
-    for (int i = 0; i < MAX_ITERATIONS; i++) {
-        updateAnts();
-        updatePheromone();
-        restartAnts();
-    }
-}
-
-int main() {
-    srand(time(NULL));
-
-    nodeTSP nodes[NODES];
-    ant* ants = new ant[ANTS];
-    float* pheromone = new float[NODES * NODES];
-    constructTSP("lin105", nodes);
-    long long time0, time1, freq;
-    QueryPerformanceFrequency((LARGE_INTEGER*)&freq);
-    QueryPerformanceCounter((LARGE_INTEGER*)&time0);
-    initializeAnts();
-    search();
-    QueryPerformanceCounter((LARGE_INTEGER*)&time1);
-    cout << "串行算法时间为" << (time1 - time0) * 1000.0 / freq << "ms" << endl;
-    float bestLen = FLT_MAX;
-    int bestIndex = -1;
-
-    for (int i = 0; i < ANTS; i++) {
-        if (ants[i].solutionLen < bestLen) {
-            bestLen = ants[i].solutionLen;
-            bestIndex = i;
-        }
-    }
-
-    cout << "Best length: " << bestLen << endl;
-    cout << "Best tour: ";
-
-    for (int i = 0; i < NODES; i++) {
-        cout << ants[bestIndex].solution[i] << " ";
-    }
-
-    cout << endl;
-
-    delete[] ants;
-    delete[] pheromone;
-
-    return 0;
+  }
+auto end = std::chrono::system_clock::now();
+std::chrono::duration<float> duration = end - start;
+cout << best << " " <<duration.count()<<endl;
 }
