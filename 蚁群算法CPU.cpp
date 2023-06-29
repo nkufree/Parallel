@@ -1,11 +1,10 @@
-#include <stdio.h>
-#include <math.h>
+#include <cmath>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <unistd.h>
-#include <chrono>
+#include <ctime>
+#include <Windows.h>
 #include "ants.h"
 
 using namespace std;
@@ -199,7 +198,9 @@ int main(){
   dist = new EdgeMatrix();
   constructTSP(graph, cities, dist);
   
-  auto start = std::chrono::system_clock::now();
+  long long time0, time1, freq;
+  QueryPerformanceFrequency((LARGE_INTEGER*)&freq);
+  QueryPerformanceCounter((LARGE_INTEGER*)&time0);
   init();
   for (int i =0; i<MAX_ITERATIONS; i++){
     for (int ant = 0; ant < MAX_ANTS; ant++){
@@ -218,7 +219,6 @@ int main(){
       restartAnts();
     }
   }
-auto end = std::chrono::system_clock::now();
-std::chrono::duration<float> duration = end - start;
-cout << best << " " <<duration.count()<<endl;
+  QueryPerformanceCounter((LARGE_INTEGER*)&time1);
+  cout << "CPU计算时间为" << (time1 - time0) * 1000.0 / freq << "ms" << endl;
 }
